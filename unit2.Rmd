@@ -1,0 +1,154 @@
+---
+title: "Unit 2"
+output: html_document
+date: "2023-09-11"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+ 
+ 
+ 
+The codes below requires the R package ISLR. Use install.packages("ISLR") to install the R package. Then load the R package.
+
+```{r}
+library(ISLR)
+```
+
+
+
+## Import and examine the data 
+
+The dataset we will work with is called $Advertising$. It is available online and it is a csv file. You can view the dataset once imported. Since the first column $X$ is the index of the data points, it is removed. The last column $sales$ is the response column. 
+
+```{r}
+Advertising= read.csv("https://www.statlearning.com/s/Advertising.csv")
+Advertising
+Advertising$X = NULL
+```
+
+
+You can find the names of columns of the dataset. 
+```{r}
+names(Advertising)
+
+```
+
+A pairwise plot is useful to graphically look at the relationship between any two variables (including the response variable and the input varibles)
+
+```{r}
+pairs(Advertising)
+```
+
+
+
+## Model fitting
+We first fit a linear regression model on $sales$ using the three independent variables. 
+
+```{r}
+fit = lm(sales~TV+radio+newspaper, data = Advertising)
+fit = lm(sales~., data = Advertising)
+```
+
+A summary of the fitted model is obtained. 
+```{r}
+sfit = summary(fit)
+sfit
+str(sfit)
+```
+
+If we are interested in whether or not there is a relationship between advertising sales and budget, we are performing a hypothesis testing with the null hypothesis that there is no relationship between the   $sales$ and the indepedent variables. 
+```{r}
+sfit$fstatistic[1]
+1- pf(sfit$fstatistic[1],sfit$fstatistic[2],sfit$fstatistic[3])
+```
+The $p$-value is extremely small. It implies that we will reject the null hypothesis and conclude that one or more independent variables affect the responses significantly. 
+
+
+To answer how strong the relationship is, we check the R square. An R square value close to 1 indicates that the model explains a large portion of the variance in the response variable. 
+```{r}
+sfit$r.squared
+```
+
+We can check which media contributes to sales by looking at the summary table. 
+```{r}
+sfit
+```
+
+We can also check how large  the effect of each medium on sales is by computing the estimated regression coefficients and the confidence interval of the estimates. 
+```{r}
+sfit$coefficients
+coef(sfit)
+cbind(sfit$coefficients[,1]-qt(0.975,196)*sfit$coefficients[,2], sfit$coefficients[,1]+ qt(0.975,196)*sfit$coefficients[,2])
+confint(fit)
+```
+
+
+We can make prediction at the observed and unobserved inputs. There are two different predictions, predicting the mean response and the individual response. 
+```{r}
+fitted.values = fitted(fit)
+pred_clim = predict.lm(fit,data = Advertising,se.fit=TRUE, interval =  "confidence")
+pred_plim = predict.lm(fit,data = Advertising,se.fit=TRUE, interval =  "prediction")
+new = data.frame(TV = 60, radio = 6, newspaper = 26 )
+pred_new_clim = predict.lm(fit, new,se.fit=TRUE, interval =  "confidence")
+pred_new_plim = predict.lm(fit, new,se.fit=TRUE, interval =  "prediction")
+```
+
+Before making conclusion, we shall conduct model diagnostics. Verify the model assumptions. 
+```{r}
+par(mfrow=c(2,3))
+plot(fitted.values, sfit$residuals,xlab = "fitted values", ylab="residuals")
+plot(Advertising$TV, sfit$residuals,xlab = "TV", ylab="residuals")
+plot(Advertising$radio, sfit$residuals,xlab = "radio", ylab="residuals")
+plot(Advertising$newspaper, sfit$residuals,xlab = "newspaper", ylab="residuals")
+plot(1:200, sfit$residuals,xlab = "Index",ylab = "residuals")
+qqnorm(sfit$residuals)
+qqline(sfit$residuals)
+plot(fit)
+```
+
+We can also compare the full model with a smaller model or other models including the higher-order interaction terms. 
+```{r}
+fit2 = lm(sales~TV+radio, data = Advertising)
+anova(fit2,fit)
+```
+
+The fitted model with the interaction is, 
+```{r}
+fit3 = lm(sales~TV*radio, data = Advertising)
+anova(fit2,fit3)
+summary(fit3)
+```
+
+
+
+ 
+
+
+
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+  
