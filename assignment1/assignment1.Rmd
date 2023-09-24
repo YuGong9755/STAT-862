@@ -1,0 +1,225 @@
+---
+title: "assignment 1"
+author: "Yu Gong"
+date: "2023-09-24"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Question 1
+Load the data Auto after installing and loading the library ISLR2. and complete the following parts.
+```{r}
+library(ISLR2)
+?Auto
+```
+### (a) Look up the help for Auto. (b) Compute the dimension size of Auto and display its dimension names.
+```{r}
+dim(Auto)
+names(Auto)
+```
+### (c) Write an expression that returns the summary statistics, as given by summary(),for each of the first eight columns in this matrix.
+```{r}
+summary(Auto[,1:8])
+```
+### (d) Apply the pairs() function to the matrix to create scatter plots of the first eight columns against one another.
+```{r}
+pairs(Auto[,1:8])
+```
+### (e) Create a correlation matrix of the rst seven columns
+```{r}
+cor(Auto[,1:7])
+```
+
+### (f)Select the cars that have < 16 mpg, but having eight cylinders
+```{r}
+library(tidyverse)
+Auto%>%
+        filter(mpg<16,cylinders==8)
+        
+```
+```{r}
+Auto[which(Auto$mpg<16 & Auto$cylinders==8),]
+```
+
+### (g)Select the cars that have greater than average horsepower, but less than average weight.
+```{r}
+meanpower<-mean(Auto$horsepower)
+meanweight<-mean(Auto$weight)
+Auto%>%
+        filter(horsepower>meanpower,weight>meanweight)
+```
+### (h) Create a design matrix, X, that contains all 1's in the first column and the hoursepower in the second column. This will serve as our design matrix in part (m).
+```{r}
+X<-cbind(rep(1,length(Auto$horsepower)),Auto$horsepower)
+head(X)
+```
+### (i) simple linear regression 
+```{r}
+y<-as.matrix(Auto$mpg)
+b<-solve(t(X)%*%X)%*%t(X)%*%y
+b
+fit<-lm(Auto$mpg~Auto$horsepower)
+fit$coefficients
+```
+### (i) In a single plot, draw the following subplots (1) a scatter plot of mpg (y) versus horsepower (x); (2) a histogram of mpg; (3) a Quantile-Quantiale plot of mpg;(4) a boxplot of mpg and horsepower.
+```{r}
+par(mfrow=c(2,2))
+plot(Auto$horsepower,Auto$mpg,type='p')
+hist(Auto$mpg)
+qqnorm(Auto$mpg)
+qqline(Auto$mpg)
+boxplot(Auto$horsepower,Auto$mpg)
+```
+
+## Question 2
+
+```{r}
+1-pnorm(3)
+1-pnorm(35,30,4)
+dbinom(10,10,0.83)
+punif(0.9)
+1-pchisq(6.5,df=2)
+```
+## Question 3 
+
+### (a)
+```{r}
+x<-runif(30,0,1)
+y<-1.5+3.1*x+1.2*x^2+4.5*x^3+rnorm(30,0,1)
+train<-cbind(y,x)
+train<-as.data.frame(train)
+plot(x,y,type='p')
+```
+### (b)&(c)
+```{r}
+x<-seq(0,1,length=100)
+y<-1.5+3.1*x+1.2*x^2+4.5*x^3+rnorm(100,0,1)
+test<-cbind(y,x)
+test<-as.data.frame(test)
+bias<-rep(0,6)
+var<-rep(0,6)
+mse<-rep(0,6)
+id<-seq(1:6)
+for (i in 1:6){
+        fit<-lm(y~poly(x,i),data=train)
+        predict_test<-predict.lm(fit,test,se.fit=TRUE,interval='none')
+        bias[i]<-(sum(predict_test$fit-(1.5+3.1*x+1.2*x^2+4.5*x^3)))^2/100
+        var[i]<-sum(predict_test$se.fit)/100
+        mse[i]<-bias[i]+var[i]
+}
+
+plot(id,bias,type='l',col='red',ylim=c(0,10),ylab="bias&var&mse")
+lines(id,var,type='l',col='blue',ylim=c(0,10))
+lines(id,mse,type='l',col='black',ylim=c(0,10))
+```
+
+Higher-order predictors will make the model flexible and decrease the bias. However, it relies heavily on the sample and increase the variance significantly. 
+
+## Question 4
+
+
+
+## Question 5
+### (a)
+```{r}
+x<-seq(0:100)
+beta_0=-10
+beta_1=0.4
+logistic<-function(x){
+        exp(beta_0+beta_1*x)/(exp(beta_0+beta_1*x)+1)
+}
+plot(x,logistic(x),type='l')
+```
+### (b)when Pai=0.5, it means ln(pai/1-pai)=beta_0+beta_1^x=0 
+```{r}
+-beta_0/beta_1
+```
+### (c)
+```{r}
+logistic(25)/(1-logistic(25))
+logistic(26)/(1-logistic(26))
+```
+### (d)
+```{r}
+a<-logistic(25)/(1-logistic(25))
+b<-logistic(26)/(1-logistic(26))
+identical(b/a,exp(beta_1))
+```
+## Question 6
+```{r}
+bank<-read.table("banknote.txt", sep = ",", header = FALSE)
+names(bank)<-c('variance','skewness','curtosis','entrophy','class')
+head(bank)
+```
+### (a)
+```{r}
+model_logit = glm(class ~ variance + skewness + curtosis + entrophy, family = binomial(link='logit'), data=bank)
+summary(model_logit)
+model_logit$coefficients
+head(model_logit$fitted.values)
+```
+### (b) 
+Here, we pick $e^{\tilde{\beta_1}}$ as example
+when $x_1$ increase 1, the odd will increase $e^{\tilde{\beta_1}}$ propotionally
+```{r}
+oddratio<-exp(model_logit$coefficients[2:5])
+unname(oddratio)
+```
+### (c) 
+```{r}
+X<-c(1,0.1,-0.5,1,0.5)
+a<-sum(X*model_logit$coefficients)
+Pi<-exp(a)/(1+exp(a))
+Pi
+```
+## Question 7
+```{r}
+prostate = read.csv("http://www-stat.stanford.edu/~tibs/ElemStatLearn/datasets/prostate.data",row.names=1,sep="\t")
+head(prostate)
+train<-prostate[which(prostate$train==TRUE),1:ncol(prostate)-1]
+test<-prostate[which(prostate$train==FALSE),1:ncol(prostate)-1]
+```
+
+### (a)
+```{r}
+fit<-lm(lpsa~lcavol+lweight+age+lbph+svi+lcp+gleason+pgg45,data=train)
+predict_test<-predict.lm(fit,test,interval = "none")
+predict_test
+MSE<-sum((predict_test-test$lpsa)^2)/length(predict_test)
+MSE
+```
+### (b)
+```{r}
+library("FNN")
+#normalization
+train_n <- train
+test_n <- test
+train_min <- apply(train, 2, min)
+train_max <- apply(train, 2, max)
+for (i in 1:ncol(train)) {
+train_n[, i] <- (train[, i] - train_min[i]) / (train_max[i] - train_min[i])
+# use the min and max from training data to normalize the testing data
+test_n[, i] <- (test[, i] - train_min[i]) / (train_max[i] - train_min[i])
+}
+#KNN
+m <- c(1,3,5,10)
+result <- rep(0,4)
+for (i in 1:length(m)) {
+        knn_predicted <- knn.reg(train = train_n, test = test_n, train_n$lpsa, k=m[i])
+        result[i]<-sum((knn_predicted$pred-test_n$lpsa)^2)
+}
+result
+```
+
+
+
+
+
+
+
+
+
+

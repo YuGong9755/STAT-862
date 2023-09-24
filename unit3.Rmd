@@ -1,0 +1,241 @@
+---
+title: "Unit 3"
+output: html_document
+date: "2023-09-13"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+ 
+### The probablity in logitistic regression
+
+To understand the logistic regression, we make a  plot of  probability versus $x$. 
+
+```{r}
+beta0 = -13.5
+beta1 = 12.5
+x = seq(-5,10,by = 0.01)
+plot(x, exp(beta0+beta1*x)/(1+exp(beta0+beta1*x)),xlab="x", ylab="probability")
+```
+
+One can make change the values of $\beta_0$ and $\beta_1$ and see how the probability changes accordingly. 
+
+ 
+
+
+### Logistic regression for the Default data
+
+The codes below requires the R package ISLR. Use install.packages("ISLR") to install the R package. Then load the R package.
+
+```{r}
+library(ISLR)
+```
+
+
+Read in the build-in data set *Default*. Use *str* to see the data structure.
+
+
+```{r} 
+data("Default")
+str(Default)
+```
+
+Before fitting, we have a look at the data.
+
+```{r}
+plot(Default$balance[Default$default=="No"],Default$income[Default$default=="No"],type='p',col="blue",xlab="balance",ylab="income")
+points(Default$balance[Default$default=="Yes"],Default$income[Default$default=="Yes"], col="red" )
+boxplot(Default$balance~Default$default,xlab="default",ylab="balance")
+boxplot(Default$income~Default$default,xlab="default",ylab="income")
+```
+
+We fit the logistic regression model either using the *glm* function or the *multinom* function.
+
+```{r} 
+model_logit = glm(default ~ student + balance + income, family = binomial(link='logit'), data=Default)
+require(nnet)
+model_logit2 <- multinom(default ~.,data=Default)
+```
+
+We can see the model outputs.
+```{r}
+summary(model_logit)
+str(model_logit)
+model_logit$coef
+fit = model_logit$fit
+#as.numeric(model_logit$fit>0.5)
+
+
+summary(model_logit2)
+str(model_logit2)
+#model_logit2
+#model_logit2$fit
+#as.numeric(model_logit2$fit>0.5)
+```
+
+One can check the different aspects of the model fitting such as fitted values and residuals.
+
+```{r}
+#residuals(model_logit)
+#fitted(model_logit)
+coef(model_logit)
+deviance(model_logit)
+```
+
+
+We can estimate a response as follows. For example, the estimated response at the first input is as,
+```{r}
+sum(c(1, 0, 729.5265, 44361.6251)*model_logit$coef)
+exp(-6.549544)/(1+exp(-6.549544))
+model_logit$fit[1]
+```
+ 
+We can also make prediction. For example, 
+
+```{r}
+sum(c(1, 0, 1500, 40000)*model_logit$coef)
+exp(-2.142949)/(1+exp(-2.142949))
+
+sum(c(1, 1, 1500, 40000)*model_logit$coef)
+exp(-2.789725)/(1+exp(-2.789725))
+```
+
+
+We can use the *predict* function to make the prediction 
+```{r}
+Test_default = Default[1:50,2:4]
+pred_logit= predict(model_logit,Test_default, type="response")
+as.numeric(pred_logit>=0.5)
+pred_logit2= predict(model_logit2,Test_default)
+```
+
+ 
+
+###  Linear Discriminant Analaysis 
+
+
+To conduct linear discriminant analysis, we use the *lda* function in the R package *MASS*. 
+ 
+```{r}
+library(MASS)
+model_lda = lda(default~ . ,data=Default)
+model_lda
+str(model_lda)
+```
+
+ 
+
+The following code is to help understand the estimate $\hat{\mu}$ in LDA. 
+```{r}
+mean(Default$balance)
+
+mean(Default$balance[Default$default=='No'])
+mean(Default$balance[Default$default=='Yes'])
+
+mean(as.numeric(Default$student[Default$default=='No'])-1)
+mean(as.numeric(Default$student[Default$default=='Yes'])-1)
+```
+
+
+We can use the *prediction* function to make prediction using LDA.
+
+```{r}
+pred_lda = predict(model_lda,Test_default)
+pred_lda$class
+pred_lda$posterior 
+```
+ 
+###  Quadratic Discriminant Analysis
+
+
+We can perform quadratic discriminant analysis using the *qda* function. 
+
+```{r}
+model_qda = qda(default~ . ,data=Default)
+model_qda
+```
+
+We can make prediction using the *predict* function.
+
+```{r}
+pred_qda = predict(model_qda,Test_default)
+pred_qda$class
+pred_qda$posterior 
+```
+
+ 
+### Comparison of the logistic regression, LDA and QDA.
+
+To compare the logistic regression, LDA and QDA, we compute the confusion matrix. 
+
+```{r}
+# logitistic regression
+pred_logit= predict(model_logit, Default, type="response")
+pred_logit = as.numeric(pred_logit>=0.5)
+cm_logit= table(pred_logit, Default$default)
+
+# lda 
+pred_lda = predict(model_lda,Default)
+cm_lda = table(pred_lda$class, Default$default)
+
+
+# qda 
+pred_qda = predict(model_qda,Default)
+cm_qda = table(pred_qda$class, Default$default)
+```
+
+
+Compare the different model using *precision*.
+```{r}
+precison_logit = cm_logit[2,2]/(cm_logit[2,1] + cm_logit[2,2])
+precison_lda = cm_lda[2,2]/(cm_lda[2,1] + cm_lda[2,2])
+precison_qda = cm_qda[2,2]/(cm_qda[2,1] + cm_qda[2,2])
+c(precison_logit,precison_lda,precison_qda)
+```
+
+Compare the different model using *sensitivity*. 
+
+```{r}
+sensitivity_logit = cm_logit[2,2]/(cm_logit[1,2] + cm_logit[2,2])
+sensitivity_lda = cm_lda[2,2]/(cm_lda[1,2] + cm_lda[2,2])
+sensitivity_qda = cm_qda[2,2]/(cm_qda[1,2] + cm_qda[2,2])
+c(sensitivity_logit,sensitivity_lda,sensitivity_qda)
+```
+
+Compare the different model using *Specifity*. 
+
+```{r}
+specifity_logit = cm_logit[1,1]/(cm_logit[1,1] + cm_logit[2,1])
+specifity_lda = cm_lda[1,1]/(cm_lda[1,1] + cm_lda[2,1])
+specifity_qda = cm_qda[1,1]/(cm_qda[1,1] + cm_qda[2,1])
+c(specifity_logit,specifity_lda,specifity_qda)
+```
+
+ 
+
+ 
+ 
+
+
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+  
