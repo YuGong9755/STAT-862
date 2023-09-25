@@ -87,6 +87,7 @@ punif(0.9)
 
 ### (a)
 ```{r}
+set.seed(1)
 x<-runif(30,0,1)
 y<-1.5+3.1*x+1.2*x^2+4.5*x^3+rnorm(30,0,1)
 train<-cbind(y,x)
@@ -106,21 +107,62 @@ id<-seq(1:6)
 for (i in 1:6){
         fit<-lm(y~poly(x,i),data=train)
         predict_test<-predict.lm(fit,test,se.fit=TRUE,interval='none')
-        bias[i]<-(sum(predict_test$fit-(1.5+3.1*x+1.2*x^2+4.5*x^3)))^2/100
-        var[i]<-sum(predict_test$se.fit)/100
+        bias[i]<-sum((predict_test$fit-(1.5+3.1*x+1.2*x^2+4.5*x^3))^2)/100
+        var[i]<-sum((predict_test$se.fit)^2)/100
         mse[i]<-bias[i]+var[i]
 }
 
-plot(id,bias,type='l',col='red',ylim=c(0,10),ylab="bias&var&mse")
-lines(id,var,type='l',col='blue',ylim=c(0,10))
-lines(id,mse,type='l',col='black',ylim=c(0,10))
+plot(id,bias,type='b',col='red',ylab="bias&var&mse")
+lines(id,var,type='b',col='blue')
+lines(id,mse,type='b',col='black')
 ```
 
 Higher-order predictors will make the model flexible and decrease the bias. However, it relies heavily on the sample and increase the variance significantly. 
 
 ## Question 4
 
+```{r}
+comm<-read.table("CommercialProperties.txt", sep = "", header = TRUE)
+```
 
+### (a)
+
+```{r}
+par(mfrow=c(2,2))
+for (i in 2:5){
+        boxplot(comm[,1]~comm[,i],ylab="Y",xlab=paste("X",i-1))
+}
+```
+### (b)
+```{r}
+pairs(comm[,1:5])
+cor_matrix<-cor(comm[,1:5])
+cor_matrix
+```
+
+Y doesn't have significant linear relationship with X3; X2 and X4 has linear relationship to some extent (colinearity caveat)
+
+### (c)
+```{r}
+fit<-lm(Y~X1+X2+X3+X4,data=comm)
+summary(fit)
+```
+### (d)
+
+```{r}
+boxplot(fit$residuals)
+```
+
+seems symmetric (https://en.wikipedia.org/wiki/Box_plot#/media/File:Boxplot_vs_PDF.svg)
+
+### (e)
+```{r}
+test_comm = data.frame(X1=5,X2=8.25,X3=0,X4=250000)
+pred_new_clim = predict.lm(fit, test_comm,se.fit=TRUE, interval =  "confidence")
+pred_new_clim$fit[1] #predict of mean response
+pred_new_clim$se.fit #standard error of predicted mean
+pred_new_clim$fit[2:3] #confidence interval of predicted mean 
+```
 
 ## Question 5
 ### (a)
