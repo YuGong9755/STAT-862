@@ -130,7 +130,7 @@ comm<-read.table("CommercialProperties.txt", sep = "", header = TRUE)
 ```{r}
 par(mfrow=c(2,2))
 for (i in 2:5){
-        boxplot(comm[,1]~comm[,i],ylab="Y",xlab=paste("X",i-1))
+        boxplot(comm[,i],xlab=paste("X",i-1))
 }
 ```
 ### (b)
