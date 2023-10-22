@@ -1,0 +1,384 @@
+---
+title: "Unit 4"
+output: html_document
+date: "2023-09-18"
+---
+
+
+
+<style type="text/css">
+  body{
+  font-size: 14pt;
+}
+</style>
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+ 
+This chapter will work on model selection methods. We will use R package *leaps* which need to be installed and load. 
+The dataset we will work with is called *Prostate*. We use the *attach* function to access variables of a data.frame without calling the data.frame. The dataset is available to be imported from a txt file. 
+
+
+```{r}
+install.packages("leaps")
+Prostate = read.table("Prostate.txt",header=T) 
+attach(Prostate)
+```
+
+
+ 
+### **Subset Selection**
+ 
+One of the methods for variable seletion is subset selection. That is to select the best model according to certain criterion from the list of all possible models.  We will use *regsubsets* function. 
+ 
+
+
+Below is to  return separate best models of all sizes up to nvmax and since different model selection criteria such as AIC, BIC, CIC, DIC, ... differ only in how models of different sizes are compared, the results do not depend on the choice of cost-complexity tradeoff. 
+
+```{r}
+# nvmax: maximum size of subsets to examine
+library(leaps)
+leaps=regsubsets(lpsa~lcavol+lweight+age
+      +lbph+svi+lcp+gleason+pgg45, data=Prostate,nvmax=5)
+summary(leaps)
+```
+
+
+ 
+Below is to choose the *nbest* number of models of each size.  
+```{r}
+# nbest: number of subsets of each size to record
+leaps=regsubsets(lpsa~lcavol+lweight+age
+      +lbph+svi+lcp+gleason+pgg45,data=Prostate,nbest=2)
+summary(leaps)
+```
+
+
+
+We can produce the plots for choosing significant variables using different criteria such *R square*, *adjusted R square*, *Cp*, *BIC*. 
+
+```{r}
+leaps=regsubsets(lpsa~lcavol+lweight+age
+      +lbph+svi+lcp+gleason+pgg45,data=Prostate)
+pdf("bestsubset_leaps_r2.pdf")
+plot(leaps,scale="r2")
+dev.off()
+pdf("bestsubset_leaps_adjr2.pdf")
+plot(leaps,scale="adjr2")
+dev.off()
+pdf("bestsubset_leaps_Cp.pdf")
+plot(leaps,scale="Cp")
+dev.off()
+pdf("bestsubset_leaps_bic.pdf")
+plot(leaps,scale="bic")
+dev.off()
+```
+
+We can also print out the properties of the best model. 
+
+```{r}
+reg.summary=summary(leaps)
+names((reg.summary))
+
+### the residual sum of squares of the top  8 models
+reg.summary$rss
+
+### the R^2 of the top 8 models
+reg.summary$rsq
+
+### the adjusted R^2 of the top 8 models
+reg.summary$adjr2
+
+### the Cp of the top 7models
+reg.summary$cp
+```
+
+We can also make plots of the model properties. 
+
+```{r}
+#  plot of RSS, adjusted R^2, Cp and BIC together
+par(mfrow=c(2,2))
+plot(reg.summary$rss, xlab="Number of Predictors", ylab="Residual Sum of Squares", type="l", xlim=c(0,11), ylim=c(min(reg.summary$rss), max(reg.summary$rss)))
+points(which.min(reg.summary$rss), reg.summary$rss[which.min(reg.summary$rss)], cex=2, pch=20, col="red")
+
+plot(reg.summary$cp, xlab="Number of Predictors", ylab="Cp", type="l", xlim=c(0,11), ylim=c(min(reg.summary$cp),max(reg.summary$cp)))
+points(which.min(reg.summary$cp), reg.summary$cp[which.min(reg.summary$cp)], cex=2, pch=20, col="red")
+
+plot(reg.summary$adjr2, xlab="Number of Predictors", ylab="Adjusted R Square", type="l", xlim=c(0,11), ylim=c(0,1))
+points(which.max(reg.summary$adjr2),reg.summary$adjr2[which.max(reg.summary$adjr2)], cex=2, pch=20, col="red")
+
+plot(reg.summary$bic, xlab="Number of Predictors", ylab="BIC", type="l", xlim=c(0,11))
+points(which.min(reg.summary$bic),reg.summary$bic[which.min(reg.summary$bic)], cex=2, pch=20, col="red")
+```
+ 
+### **Forward selection, backward elimination, and stepwise regression**
+
+Subset selection may be computationally expensive. To save computation time, we can use forward selection, backward elimination and stepwise regression.
+
+We first define the full model and the null model. 
+```{r}
+### full model
+fit1<-lm(lpsa~lcavol+lweight+age+lbph+svi+lcp+gleason+pgg45,
+  data=Prostate)
+### null model
+fit0<-lm(lpsa~1,data=Prostate)
+```
+
+
+The foward selection starts from the null model and adds one imprtant variable at a time. 
+
+```{r}
+fit.forward<-step(fit0,scope=list(lower=lpsa~1, upper=fit1),direction='forward')
+summary(fit.forward)
+```
+
+
+The  backward elimination starts from the full model and delete one inimportant variable at a time.
+```{r}
+fit.backward<-step(fit1,scope=list(lower=lpsa~1, upper=fit1),direction='backward')
+summary(fit.backward)  
+```
+
+The stepwise regression starts with the null model and repeat the process of adding a potential important variable and deleting a potential unimportant variable.  This can be done based on AIC, BIC or SBC. 
+
+```{r}
+### stepwise regression by AIC criterion
+fit.both<-step(fit0,scope=list(lower=lpsa~1, upper=fit1),direction='both')
+summary(fit.both)  
+```
+
+### **Ridge Regression**
+ 
+ 
+We will go through ridge regression that is used when there is a multi-collinarity issue in the data. 
+An illustration of using ridge regression for such a case is as follows. We will use *lm.ridge* function in R package *MASS*. You will need to install the pacakge *MASS*. 
+    
+```{r}          
+install.packages("MASS")
+library(MASS)  
+# in the presence of multi-collinearity 
+x1  = rnorm(30)
+x2  = rnorm(30,mean=x1,sd=.01)
+y   = rnorm(30,mean=5+x1+x2)
+lm(y~x1+x2)$coef
+lm.ridge(y~x1+x2,lambda=1)
+```
+The followings are the analyis using ridge regression for the dataset *Prostate*. Since ridge regression is sensitive to the scale, we standardize the data by using the *scale* function. 
+We first fit the data using the ridge regression with the tuning parameters ranging from 0 to 20. 
+```{r} 
+prostate = scale(Prostate)
+prostate = as.data.frame(prostate)
+fit.ridge<-lm.ridge(lpsa~lcavol+lweight+age
+         +lbph+svi+lcp+gleason+pgg45,
+         data=prostate, lambda=seq(0,20,0.1))  
+```
+
+We choose the best tuning parameter using the GCV criterion and refit the data using the ridge regression with the chosen tuning parameter. 
+
+```{r}
+## choosing the tuning parameters to determine the estimated regression coefficients 
+plot(fit.ridge) # different line represents that the solution path for different estimated parameters, with lambda increasing
+plot(seq(0,20,0.1),fit.ridge$GCV,xlab= expression(lambda),ylab="GCV")
+select(fit.ridge)
+round(fit.ridge$coef[, which(fit.ridge$lambda == 6.5)], 2)    
+fit.ridge<-lm.ridge(lpsa~lcavol+lweight+age  
+         +lbph+svi+lcp+gleason+pgg45,   
+         data=prostate, lambda=6.5)   
+fit.ridge$coef   
+```
+
+After the fitting, one can get the fitted value by taking into account the standardization. 
+```{r}
+#  fitted response 
+yhat = vector('numeric',length(prostate$lpsa))
+for(i in 1:8)
+  yhat = yhat + fit.ridge$coef[i]*(Prostate[,i]- mean(Prostate[,i]))/sd(Prostate[,i])
+yhat1 = mean(Prostate[,9]) +sd(Prostate[,9])*yhat
+```
+
+We can also use the pacakge *glmnet* for ridge regression. 
+
+```{r}
+library(glmnet)
+X = as.matrix(Prostate[,1:8])
+y = Prostate$lpsa
+cv.ridge = cv.glmnet( X,y, alpha = 0, lambda=seq(0,10,0.001) )
+cv.ridge$lambda.min
+ridge = glmnet(X,y, alpha=0, lambda=cv.ridge$lambda.min )
+coef(ridge)
+yhat2 = predict( ridge, cv.ridge$lambda.min, newx = X )
+```
+
+
+ 
+### **Lasso**
+
+Lasso is a popular type of regularized linear regression that includes an $L_1$ penalty. It achieves estimation and variable selection simultaneously.  We will use the *glmnet*
+function to fit a Lasso regression. 
+ 
+ 
+
+```{r} 
+library(glmnet)
+X = as.matrix(Prostate[,1:8])
+y = Prostate$lpsa
+
+fit = glmnet(X,y)
+```
+
+We choose the tuning parameter by minimizing the cross-validation error. 
+```{r} 
+plot(fit)
+cvfit = cv.glmnet(X,y)
+plot(cvfit)
+coef(fit,s=cvfit$lambda.min)
+min(cvfit$cvm)
+```
+
+With the chosen tuning parameter, we can make the prediction. 
+```{r}
+yhat = predict(fit, cvfit$lambda.min, newx = X)
+```
+ 
+One can also use *lars*  function in the R pacakge *lars*. The following R code is not required. 
+ 
+```{r}
+##lars
+install.packages("lars")
+library(lars)
+
+## lasso using  the lars function 
+fit.lars = lars(X,y, type="lasso",trace=TRUE)
+plot(fit.lars)
+cv.fit.lars = cv.lars(X,y,mode="step")
+cbind(cv.fit.lars$index,cv.fit.lars$cv)
+
+# choosing the tuning parameter and the estimated coefficients 
+bestindex = cv.fit.lars$index[which.min(cv.fit.lars$cv)]
+which.min(cv.fit.lars$cv)
+fit.lars$beta
+bestindex
+fit.lars$lambda
+fit.lars$beta[bestindex,]
+
+# another way to obtain the estimated coefficients 
+cv.fit.lars.f = cv.lars(X,y,mode="fraction")
+which.min(cv.fit.lars.f$cv)
+bestindex = cv.fit.lars.f$index[which.min(cv.fit.lars.f$cv)]
+bestindex
+predict.lars(fit.lars,s=bestindex,mode="fraction",type="coefficients") 
+p.lars = predict.lars(fit.lars,s=bestindex,mode="fraction",type="coefficients")
+p.lars$coefficient 
+```
+
+
+ 
+###   **Principal Component Regression**
+ 
+Principal component regression is a technique by applying the regression on the transformed input variables.
+We will use the *pls* package to carry out the principal component regression. 
+
+
+We split the dataset into training data and test data. We fist standardize the input variable and response variable. 
+```{r} 
+install.packages("pls")
+library(pls)
+
+ 
+# remove the first column
+prostate = Prostate[,-1] 
+
+# partition the original data into training and testing datasets
+train <- subset(prostate, train==TRUE )[,1:9]
+test  <- subset(prostate, train==FALSE)[,1:9]  
+
+
+# standardization of predictors
+# you can also use scale function 
+trainst <- train
+for(i in 1:8) {
+  trainst[,i] <- (trainst[,i] - mean(prostate[,i]))/sd(prostate[,i])
+}
+testst <- test
+for(i in 1:8) {
+  testst[,i] <- (testst[,i] - mean(prostate[,i]))/sd(prostate[,i])
+}
+```
+
+We use the *pcr* function to carry out the principal component analysis. 
+```{r}
+## apply the principal component analysis
+pcr.fit=pcr(lpsa~., data=trainst, scale=F, validation="CV", segments=10)
+summary(pcr.fit)
+```
+
+We  find the best number of components by *MSEP, RMSEP, or R square*.  We can also find the best number of components by CV.
+
+```{r}
+validationplot(pcr.fit,val.type="MSEP")
+itemp=which.min(pcr.fit$validation$PRESS)  #PRESS: Predicted Residual Sum of Squares  
+itemp.mean=pcr.fit$validation$PRESS[itemp]/67
+mean((pcr.fit$validation$pred[,,itemp]-trainst[,9])^2)  
+itemp.sd=sd((pcr.fit$validation$pred[,,itemp]-trainst[,9])^2)/sqrt(67) 
+abline(h=itemp.mean+itemp.sd, lty=2)
+k.pcr = min((1:pcr.fit$validation$ncomp)[pcr.fit$validation$PRESS/67 < itemp.mean+itemp.sd])  # the chosen k = 3 This "one standard error" rule is a heuristic used in various model selection techniques. It tends to choose a simpler model (i.e., with fewer components) if its performance (in terms of PRESS here) is not much worse (i.e., within one standard error) than the best model.
+abline(v=k.pcr, lty=2)   
+pcr.fit$coefficients[,,k.pcr]   # fitted model with chosen number of components
+```
+
+We can compute  mean prediction error, mean (absolute) prediction error and mean (squared) prediction error. 
+```{r}
+# mean prediction error
+test.pcr=predict(pcr.fit,as.matrix(testst[,1:8]),ncomp=k.pcr)
+# mean (absolute) prediction error
+mean(abs(test[,9]-test.pcr))                
+# mean (squared) prediction error
+mean((test[,9]-test.pcr)^2)                 
+# standard error of mean (squared) prediction error
+sd((test[,9]-test.pcr)^2)/sqrt(30)        
+```
+
+ 
+###  **Partial least square**
+ 
+ 
+We now use partial least square regression to fit the training data. 
+
+```{r}
+set.seed(1)
+plsr.fit=plsr(lpsa~., data=trainst, scale=F, validation="CV", segments=10)
+summary(plsr.fit)
+validationplot(plsr.fit,val.type="MSEP")
+
+
+#find the best number of components.
+
+itemp=which.min(plsr.fit$validation$PRESS)     
+itemp.mean=plsr.fit$validation$PRESS[itemp]/67  
+mean((plsr.fit$validation$pred[,,itemp]-trainst[,9])^2)  
+itemp.sd=sd((plsr.fit$validation$pred[,,itemp]-trainst[,9])^2)/sqrt(67)    
+abline(h=itemp.mean+itemp.sd, lty=2)
+k.plsr = min((1:plsr.fit$validation$ncomp)[plsr.fit$validation$PRESS/67 < itemp.mean+itemp.sd])  # the chosen k = 2
+abline(v=k.plsr, lty=2)   
+plsr.fit$coefficients[,,k.plsr]   # fitted model with chosen number of components
+
+```
+
+We can compute  mean prediction error, mean (absolute) prediction error and mean (squared) prediction error. 
+```{r}
+# mean prediction error
+test.plsr=predict(plsr.fit,as.matrix(testst[,1:8]),ncomp=k.plsr)
+# mean (absolute) prediction error
+mean(abs(test[,9]-test.plsr))                
+# mean (squared) prediction error
+mean((test[,9]-test.plsr)^2)                 
+# standard error of mean (squared) prediction error
+sd((test[,9]-test.plsr)^2)/sqrt(30)         
+```
+
+We release the variable names in the dataset Prostate. 
+```{r}
+detach(Prostate)
+```
